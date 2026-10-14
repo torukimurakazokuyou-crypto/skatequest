@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>スケクエ ぼうけんのしょ（スプレッドシート完全連動版）</title>
+    <link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
+    <style>
+        body { background-color: #000; color: #fff; font-family: 'DotGothic16', monospace; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        h1 { border-bottom: 2px solid #fff; padding-bottom: 10px; width: 100%; max-width: 900px; }
+        .rpg-box { border: 4px solid #fff; border-radius: 8px; padding: 20px; background-color: #000; box-sizing: border-box; margin-bottom: 15px; }
+        .container { display: flex; gap: 20px; width: 100%; max-width: 900px; }
+        .list-section, .detail-section { flex: 1; height: 500px; overflow-y: auto; }
+        
+        details { margin-bottom: 15px; }
+        summary { cursor: pointer; outline: none; list-style: none; user-select: none; }
+        summary::-webkit-details-marker { display: none; }
+        .category-header { color: #ffeb3b; border-bottom: 1px dashed #555; padding: 10px 5px; margin: 0 0 10px 0; font-size: 18px; font-weight: bold; transition: 0.2s; }
+        .category-header:hover { background-color: #222; }
+        .category-header::before { content: "▶ "; color: #fff; display: inline-block; width: 20px; }
+        details[open] .category-header::before { content: "▼ "; color: #fff; }
+        
+        .trick-item { cursor: pointer; padding: 10px 10px 10px 30px; border-bottom: 1px dashed #333; display: flex; justify-content: space-between; }
+        .trick-item:hover { background-color: #333; }
+        .status-0 { color: #888; } .status-1 { color: #ff9800; font-weight: bold; } .status-2 { color: #ffeb3b; font-weight: bold; }
+        .btn { font-family: 'DotGothic16', monospace; background-color: #000; color: #fff; border: 2px solid #fff; padding: 10px; font-size: 16px; cursor: pointer; margin-top: 10px; width: 100%; }
+        .btn:hover { background-color: #333; }
+        .btn-try { border-color: #ff9800; color: #ff9800; }
+        .btn-make { border-color: #ffeb3b; color: #ffeb3b; }
+        .btn-undo { border-color: #888; color: #888; font-size: 14px; }
+        .btn-parent { border-color: #e91e63; color: #e91e63; width: auto; font-size: 14px; }
+        .profile-container { display: flex; align-items: center; gap: 15px; cursor: pointer; }
+        .profile-icon { font-size: 40px; border: 2px solid #fff; padding: 5px; border-radius: 8px; }
+        #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; z-index: 100; }
+        .modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #000; border: 4px solid #fff; padding: 20px; z-index: 101; display: none; width: 320px; max-height: 80vh; overflow-y: auto; }
+        .modal input, .modal textarea { width: 100%; background: #222; color: #fff; border: 1px solid #fff; font-family: 'DotGothic16'; padding: 5px; margin-top: 10px; margin-bottom: 15px; box-sizing: border-box; }
+        .modal label { font-size: 14px; color: #aaa; }
+        #reward-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 235, 59, 0.95); color: #000; z-index: 200; display: none; flex-direction: column; align-items: center; justify-content: center; font-size: 24px; text-align: center; }
+        .illustration-box { border: 2px dashed #555; height: 160px; display: flex; align-items: center; justify-content: center; margin: 10px 0; background-color: #111; border-radius: 8px; overflow: hidden; }
+        
+        /* クラウド同期状況を表示するインジケータ */
+        #sync-status { position: fixed; bottom: 10px; right: 10px; font-size: 12px; color: #888; background: #111; padding: 6px 12px; border: 1px solid #444; border-radius: 4px; z-index: 99; }
+    </style>
+</head>
+<body>
+    <div id="sync-status">⚡ クラウド接続準備中...</div>
+
+    <div id="reward-screen">
+        <h1 style="border:none;">🎉 レベル<span id="reward-level-num"></span> の たからばこが ひらいた！ 🎉</h1>
+        <div id="reward-result" style="font-size: 32px; font-weight: bold; margin: 20px 0; color: #e91e63;"></div>
+        <button class="btn" style="width: 200px; border-color: #000; color: #000;" onclick="closeTreasureBox()">次へ</button>
+    </div>
+
+    <h1>▼ スケクエ ぼうけんのしょ</h1>
+    <div style="width: 100%; max-width: 900px; display: flex; justify-content: space-between; align-items: flex-start;">
+        <div class="rpg-box" style="flex: 2; margin-right: 15px;">
+            <div class="profile-container" onclick="openModal('modal-profile')">
+                <div class="profile-icon" id="display-icon">🛹</div>
+                <div>
+                    <div id="display-name" style="font-size: 20px; font-weight: bold;">なまえ：スケーター</div>
+                    <div id="display-bio" style="color: #ccc;">プロフィール：これからがんばる！</div>
+                </div>
+            </div>
+        </div>
+        <div class="rpg-box" style="flex: 1; text-align: center;">
+            <div style="font-size: 16px;">げんざいの レベル： <span id="current-level-display" style="color:#ffeb3b; font-size: 20px;">0</span></div>
+            <div style="font-size: 14px; margin-top: 5px;">次のごほうびまで： <span id="star-count" style="color: #ffeb3b; font-size: 24px;">0</span> / 5</div>
+            <button class="btn btn-parent" style="margin-top: 15px;" onclick="checkParentAccess()">【ほごしゃの ページ】</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="rpg-box list-section">
+            <h3 style="margin-top: 0; color: #aaa;">▼ トリック いちらん</h3>
+            <div id="trick-list"></div>
+        </div>
+        <div class="rpg-box detail-section" id="trick-detail">
+            <h3 style="color: #aaa;">ひだりの リストから トリックを えらんでね</h3>
+        </div>
+    </div>
+
+    <div id="overlay" onclick="closeModals()"></div>
+
+    <div id="modal-profile" class="modal">
+        <h3>▼ プロフィール へんこう</h3>
+        <label>アイコン</label><input type="text" id="input-icon" maxlength="2">
+        <label>なまえ</label><input type="text" id="input-name">
+        <label>プロフィール</label><textarea id="input-bio" rows="3"></textarea>
+        <button class="btn" onclick="saveProfile()">けってい</button>
+    </div>
+    <div id="modal-pin" class="modal">
+        <h3 style="color: #e91e63;">▼ ほごしゃ パスワード</h3>
+        <label>4ケタの すうじ</label><input type="password" id="input-pin-login" maxlength="4">
+        <button class="btn btn-parent" onclick="loginParent()">ひらく</button>
+        <div style="text-align: right; margin-top: 15px;"><a href="#" style="color: #aaa; font-size: 12px;" onclick="openModal('modal-secret')">パスワードを わすれたら</a></div>
+    </div>
+    <div id="modal-pin-setup" class="modal">
+        <h3 style="color: #e91e63;">▼ パスワード＆あいことば設定</h3>
+        <label>新しい 4ケタのパスワード</label><input type="password" id="input-new-pin" maxlength="4">
+        <label>パスワードを忘れたときの 質問</label><input type="text" id="input-secret-q">
+        <label>質問の 答え</label><input type="text" id="input-secret-a">
+        <button class="btn btn-parent" onclick="saveParentSetup()">せっていする</button>
+    </div>
+    <div id="modal-secret" class="modal">
+        <h3 style="color: #e91e63;">▼ あいことば かくにん</h3>
+        <p id="display-secret-q" style="color: #ffeb3b;"></p>
+        <label>答え</label><input type="text" id="input-secret-check">
+        <button class="btn btn-parent" onclick="checkSecret()">かくにん</button>
+    </div>
+    <div id="modal-reward-settings" class="modal">
+        <h3 style="color: #e91e63;">▼ ごほうび せってい</h3>
+        <div id="reward-inputs-container"></div>
+        <button class="btn btn-parent" style="margin-top: 20px;" onclick="saveRewards()">すべて 保存する</button>
+    </div>
+
+    <script>
+        // ▼▼▼ 指定いただいた新しいURLに変更しました ▼▼▼
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbxbes8O9NXnqAJUVx0YiPmfEDTyw2BzIXHalaoCI5uLs-czU-GsAauiCtLGxkmfmON7Ew/exec";
+        // ▲▲▲====================================▲▲▲
+
+        let appData = {
+            player: { name: "スケーター", bio: "これからがんばる！", icon: "🛹" },
+            parent: { pin: "", secretQ: "", secretA: "" },
+            rewards: ["", "", "", "", "", "", "", "", "", ""],
+            openedLevel: 0,
+            tricks: [
+                { id: 1, category: "ストリート", name: "オーリー", difficulty: 1, status: 0, desc: "テールを弾いて空を飛べ！すべての基本。" },
+                { id: 2, category: "ストリート", name: "ショービット", difficulty: 1, status: 0, desc: "板だけを横に180度まわす！" },
+                { id: 3, category: "ストリート", name: "マニュアル", difficulty: 1, status: 0, desc: "前輪を浮かせてバランスキープ！" },
+                { id: 4, category: "ストリート", name: "F/Sターン", difficulty: 1, status: 0, desc: "お腹の方向に曲がるターン。" },
+                { id: 5, category: "ストリート", name: "B/Sターン", difficulty: 1, status: 0, desc: "背中の方向に曲がるターン。" },
+                { id: 6, category: "ストリート", name: "F/S 180", difficulty: 2, status: 0, desc: "オーリーしながらお腹側に半回転！" },
+                { id: 7, category: "ストリート", name: "B/S 180", difficulty: 2, status: 0, desc: "オーリーしながら背中側に半回転！" },
+                { id: 8, category: "ストリート", name: "ノーズマニュアル", difficulty: 2, status: 0, desc: "後輪を浮かせて前輪だけで進むバランス技。" },
+                { id: 9, category: "ストリート", name: "ポップショービット", difficulty: 2, status: 0, desc: "テールを弾いて板を高く回そう。" },
+                { id: 10, category: "ストリート", name: "キックフリップ", difficulty: 3, status: 0, desc: "つま先で板を蹴り抜き、縦に1回転させる！" },
+                { id: 11, category: "ストリート", name: "ヒールフリップ", difficulty: 3, status: 0, desc: "かかとで板を蹴り抜き、縦に1回転！" },
+                { id: 12, category: "ストリート", name: "F/S ボードスライド", difficulty: 3, status: 0, desc: "レールやカーブに板のお腹をかけて滑る！" },
+                { id: 13, category: "ストリート", name: "50-50グラインド", difficulty: 3, status: 0, desc: "前後のトラック（金具）をカーブにかけて滑る！" },
+                { id: 14, category: "ストリート", name: "ノーズスライド", difficulty: 3, status: 0, desc: "板のノーズ（前）をかけて滑り抜ける！" },
+                { id: 40, category: "ストリート", name: "Kグラインド(クルックド)", difficulty: 3, status: 0, desc: "ノーズ側のトラックを斜めにかけて滑る渋い技！" },
+                { id: 15, category: "ストリート", name: "テールスライド", difficulty: 4, status: 0, desc: "板のテール（後ろ）をかけて滑る上級技。" },
+                { id: 41, category: "ストリート", name: "スミスグラインド", difficulty: 4, status: 0, desc: "後ろのトラックをかけ、ノーズを下げて滑る！" },
+                { id: 42, category: "ストリート", name: "フィーブルグラインド", difficulty: 4, status: 0, desc: "後ろのトラックをかけ、ノーズを反対側に落として滑る！" },
+                { id: 16, category: "ストリート", name: "ヴァリアルキックフリップ", difficulty: 4, status: 0, desc: "ショービットとキックフリップの複合技！" },
+                { id: 38, category: "ストリート", name: "ハードフリップ", difficulty: 4, status: 0, desc: "F/Sショービットとキックフリップの複合。股の間を板が通る！" },
+                { id: 39, category: "ストリート", name: "インポッシブル", difficulty: 4, status: 0, desc: "後ろ足に板を巻き付けるように縦回転させる！" },
+                { id: 17, category: "ストリート", name: "360フリップ (トレフリップ)", difficulty: 5, status: 0, desc: "板が360度回りながらフリップする超大技！" },
+                
+                { id: 43, category: "ストリート(オールドスクール)", name: "ケイブマン", difficulty: 1, status: 0, desc: "手に持った板を空中で足元に投げ落として乗る！" },
+                { id: 30, category: "ストリート(オールドスクール)", name: "ボンレス", difficulty: 2, status: 0, desc: "前足を地面に下ろし、手で板を掴んでジャンプ！" },
+                { id: 44, category: "ストリート(オールドスクール)", name: "スラッピー", difficulty: 2, status: 0, desc: "オーリーせずに縁石に直接トラックを当てて滑る！" },
+                { id: 31, category: "ストリート(オールドスクール)", name: "ボンレス 180", difficulty: 3, status: 0, desc: "ボンレスで飛び上がりながら180度ターン！" },
+                { id: 32, category: "ストリート(オールドスクール)", name: "ノーコンプライ", difficulty: 3, status: 0, desc: "前足を地面につき、後ろ足で板を弾いて飛ぶ渋い技。" },
+                { id: 45, category: "ストリート(オールドスクール)", name: "ウォールライド", difficulty: 3, status: 0, desc: "壁に向かって飛び、壁を走るように乗る！" },
+                { id: 46, category: "ストリート(オールドスクール)", name: "キャスパー", difficulty: 4, status: 0, desc: "板を裏返し、前足と後ろ足で板を挟んでバランス！" },
+                
+                { id: 18, category: "ランプ", name: "ドロップイン", difficulty: 1, status: 0, desc: "勇気を出してランプに飛び込め！" },
+                { id: 47, category: "ランプ", name: "キックターン", difficulty: 1, status: 0, desc: "ランプの途中で前輪を浮かせ、方向転換する基本！" },
+                { id: 19, category: "ランプ", name: "テールタップ", difficulty: 1, status: 0, desc: "コーピングをテールで軽く叩いて戻る！" },
+                { id: 20, category: "ランプ", name: "インターフェイキー", difficulty: 2, status: 0, desc: "前輪をかけて、後ろ向きに降りる。" },
+                { id: 21, category: "ランプ", name: "テールロック", difficulty: 2, status: 0, desc: "コーピングにテールをかけてピタッと止まる！" },
+                { id: 22, category: "ランプ", name: "フェイキーオーリー", difficulty: 2, status: 0, desc: "ランプを後ろ向きに進みながらオーリー！" },
+                { id: 23, category: "ランプ", name: "ノーズストール", difficulty: 2, status: 0, desc: "コーピングにノーズをかけて止まる。" },
+                { id: 33, category: "ランプ", name: "インディーグラブ", difficulty: 2, status: 0, desc: "後ろ手で、つま先側の板のフチを掴む王道グラブ！" },
+                { id: 34, category: "ランプ", name: "ノーズグラブ", difficulty: 2, status: 0, desc: "前手で板の先端（ノーズ）をしっかり掴む！" },
+                { id: 24, category: "ランプ", name: "アクスルストール", difficulty: 3, status: 0, desc: "両方のトラックをコーピングにかけて立つ！" },
+                { id: 25, category: "ランプ", name: "ロックンロール", difficulty: 3, status: 0, desc: "板の真ん中をかけ、180度ターンして降りる！" },
+                { id: 48, category: "ランプ", name: "スウィーパー", difficulty: 3, status: 0, desc: "コーピングで板を拾い上げ、足をついてから戻る！" },
+                { id: 35, category: "ランプ", name: "メラングラブ", difficulty: 3, status: 0, desc: "前手で背中側の板を掴むスタイリッシュな技。" },
+                { id: 36, category: "ランプ", name: "ミュートグラブ", difficulty: 3, status: 0, desc: "前手でつま先側の板を掴みながら飛ぶ！" },
+                { id: 26, category: "ランプ", name: "ディザスター", difficulty: 4, status: 0, desc: "空中で180度回り、板の真ん中で着地する大技！" },
+                { id: 27, category: "ランプ", name: "B/S エアー", difficulty: 4, status: 0, desc: "ランプから飛び出し、背中側にターンして着地！" },
+                { id: 37, category: "ランプ", name: "メソッドエアー", difficulty: 4, status: 0, desc: "メランで掴んだ板を、背中側に大きく反り上げる大技！" },
+                { id: 49, category: "ランプ", name: "マドンナ", difficulty: 4, status: 0, desc: "空中で前足を蹴り出し、後ろ手でノーズを掴む！" },
+                { id: 50, category: "ランプ", name: "ベニハナ", difficulty: 4, status: 0, desc: "後ろ足を蹴り出し、後ろ手でテールを掴む！" },
+                { id: 28, category: "ランプ", name: "ブラントストール", difficulty: 5, status: 0, desc: "テールをコーピングの奥にかけ、垂直に立つ超上級技！" },
+                { id: 29, category: "ランプ", name: "F/S エアー", difficulty: 5, status: 0, desc: "ランプから高く飛び出し、お腹側にターン！" },
+                { id: 51, category: "ランプ", name: "キリストエアー", difficulty: 5, status: 0, desc: "両手で板を持ち、十字架のように両手を広げる神の技！" },
+                { id: 52, category: "ランプ", name: "マックツイスト", difficulty: 5, status: 0, desc: "空中で前方に540度（1回転半）回る伝説の大技！" }
+            ]
+        };
+
+        async function autoSave() {
+            updateSyncStatus("⚡ スプレッドシートへ送信中...");
+            localStorage.setItem("skateQuestDataV8", JSON.stringify(appData));
+            
+            if (!GAS_URL || GAS_URL.includes("ここにコピーしたGAS")) {
+                updateSyncStatus("📱 ローカル保存完了 (GAS URL未設定)");
+                return;
+            }
+
+            try {
+                await fetch(GAS_URL, {
+                    method: "POST",
+                    mode: "no-cors",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(appData)
+                });
+                updateSyncStatus("✅ スプレッドシート同期完了");
+            } catch (e) {
+                console.error("送信エラー:", e);
+                updateSyncStatus("❌ 同期失敗（ローカルのみ保存）");
+            }
+        }
+
+        async function loadData() {
+            updateSyncStatus("⚡ スプレッドシートから読み込み中...");
+            
+            if (GAS_URL && !GAS_URL.includes("ここにコピーしたGAS")) {
+                try {
+                    const res = await fetch(GAS_URL);
+                    const cloudData = await res.json();
+                    if (cloudData && cloudData.tricks) {
+                        appData.player = cloudData.player || appData.player;
+                        appData.parent = cloudData.parent || appData.parent;
+                        appData.rewards = cloudData.rewards || appData.rewards;
+                        appData.openedLevel = cloudData.openedLevel !== undefined ? cloudData.openedLevel : appData.openedLevel;
+                        
+                        if (cloudData.tricks) {
+                            cloudData.tricks.forEach(savedTrick => {
+                                let target = appData.tricks.find(t => t.id === savedTrick.id);
+                                if (target) target.status = savedTrick.status;
+                            });
+                        }
+                        updateSyncStatus("✅ クラウドデータ読込完了");
+                        updateProfileUI(); 
+                        renderList();
+                        return;
+                    }
+                } catch (e) {
+                    console.error("クラウド読込失敗のためローカル読込に切り替えます", e);
+                }
+            }
+
+            const saved = localStorage.getItem("skateQuestDataV8");
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                appData.player = parsed.player || appData.player;
+                appData.parent = parsed.parent || appData.parent;
+                if (parsed.rewards) appData.rewards = parsed.rewards;
+                if (parsed.openedLevel !== undefined) appData.openedLevel = parsed.openedLevel;
+                if (parsed.tricks) {
+                    parsed.tricks.forEach(savedTrick => {
+                        let target = appData.tricks.find(t => t.id === savedTrick.id);
+                        if (target) target.status = savedTrick.status;
+                    });
+                }
+            }
+            updateSyncStatus("📱 ローカルデータ読込完了");
+            updateProfileUI(); 
+            renderList();
+        }
+
+        function updateSyncStatus(msg) {
+            document.getElementById("sync-status").innerText = msg;
+        }
+
+        function updateProfileUI() {
+            document.getElementById("display-icon").innerText = appData.player.icon;
+            document.getElementById("display-name").innerText = "なまえ：" + appData.player.name;
+            document.getElementById("display-bio").innerText = appData.player.bio;
+        }
+
+        function renderList() {
+            const listDiv = document.getElementById("trick-list");
+            listDiv.innerHTML = "";
+            let totalStars = 0;
+
+            const categories = [
+                { id: "ストリート", label: "⑴ ストリート" },
+                { id: "ストリート(オールドスクール)", label: "⑵ ストリート(オールドスクール)" },
+                { id: "ランプ", label: "⑶ ランプ" }
+            ];
+
+            categories.forEach(cat => {
+                const catTricks = appData.tricks.filter(t => t.category === cat.id);
+                if (catTricks.length > 0) {
+                    const details = document.createElement("details");
+                    details.open = true;
+
+                    const summary = document.createElement("summary");
+                    summary.className = "category-header";
+                    summary.innerText = cat.label;
+                    details.appendChild(summary);
+
+                    const listContainer = document.createElement("div");
+                    catTricks.forEach(trick => {
+                        const item = document.createElement("div");
+                        item.className = "trick-item";
+                        item.onclick = () => showDetail(trick.id);
+                        let statusText = "未トライ"; let statusClass = "status-0";
+                        if (trick.status === 1) { statusText = "🔥 挑戦中"; statusClass = "status-1"; }
+                        if (trick.status === 2) { statusText = "✨ メイク！"; statusClass = "status-2"; totalStars += trick.difficulty; }
+                        const stars = "★".repeat(trick.difficulty);
+                        item.innerHTML = `<span class="${statusClass}">${trick.name} (${stars})</span><span class="${statusClass}">${statusText}</span>`;
+                        listContainer.appendChild(item);
+                    });
+                    
+                    details.appendChild(listContainer);
+                    listDiv.appendChild(details);
+                }
+            });
+
+            let reachedLevel = Math.floor(totalStars / 5);
+            let currentStars = totalStars % 5;
+            if (reachedLevel > 10) { reachedLevel = 10; currentStars = 5; }
+            document.getElementById("current-level-display").innerText = reachedLevel;
+            document.getElementById("star-count").innerText = currentStars;
+
+            if (reachedLevel > appData.openedLevel && appData.openedLevel < 10) {
+                appData.openedLevel++; 
+                autoSave(); 
+                showTreasureBox(appData.openedLevel);
+            }
+        }
+
+        function getIllustration(id) {
+            let svg = `<svg viewBox="0 0 360 120" width="100%" height="100%">`;
+            const jumps = [1, 22, 43]; 
+            const spins = [2, 6, 7, 9]; 
+            const flips = [10, 11, 16, 17, 38, 39]; 
+            const manuals = [3, 8, 46]; 
+            const turns = [4, 5, 47]; 
+            const grinds = [12, 13, 14, 15, 40, 41, 42, 44]; 
+            const oldSchool = [30, 31, 32, 45]; 
+            const grabs = [33, 34, 35, 36, 37, 49, 50, 51]; 
+            const rampAir = [18, 27, 29, 52]; 
+            const rampLip = [19, 20, 21, 23, 24, 25, 26, 28, 48]; 
+
+            if (jumps.includes(id)) {
+                svg += `
+                    <line x1="10" y1="100" x2="190" y2="100" stroke="#555" stroke-width="2"/>
+                    <path d="M 90 95 L 90 65 M 60 95 L 60 75 M 120 95 L 120 75" stroke="#ffeb3b" stroke-width="3" stroke-dasharray="4,4"/>
+                    <g transform="translate(90, 40) rotate(-20)">
+                        <rect x="-30" y="20" width="60" height="8" fill="#ffeb3b" rx="4"/>
+                        <circle cx="0" cy="-20" r="10" fill="none" stroke="#fff" stroke-width="4"/>
+                        <line x1="0" y1="-10" x2="0" y2="10" stroke="#fff" stroke-width="4"/>
+                        <path d="M 0 -5 L -15 -20 M 0 -5 L 15 -20" stroke="#fff" stroke-width="4" fill="none"/>
+                        <path d="M 0 10 L -15 15 L -15 20 M 0 10 L 15 15 L 15 20" stroke="#fff" stroke-width="4" fill="none"/>
+                    </g>
+                    <text x="210" y="65" fill="#ffeb3b" font-family="DotGothic16" font-size="20" font-weight="bold">ジャンプ！</text>
+                `;
+            } else if (spins.includes(id)) {
+                svg += `
+                    <line x1="10" y1="100" x2="190" y2="100" stroke="#555" stroke-width="2"/>
+                    <ellipse cx="90" cy="65" rx="50" ry="15" fill="none" stroke="#03a9f4" stroke-width="4" stroke-dasharray="8,8"/>
+                    <g transform="translate(90, 50)">
+                        <rect x="-30" y="20" width="60" height="8" fill="#03a9f4" rx="4"/>
+                        <circle cx="0" cy="-20" r="10" fill="none" stroke="#fff" stroke-width="4"/>
+                        <line x1="0" y1="-10" x2="0" y2="10" stroke="#fff" stroke-width="4"/>
+                        <path d="M 0 0 L -15 10 M 0 0 L 15 10" stroke="#fff" stroke-width="4" fill="none"/>
+                        <path d="M 0 10 L -15 20 M 0 10 L 15 20" stroke="#fff" stroke-width="4" fill="none"/>
+                    </g>
+                    <text x="210" y="60" fill="#03a9f4" font-family="DotGothic16" font-size="18">板が【横】に回る！</text>
+                `;
+            } else if (flips.includes(id)) {
+                svg += `
+                    <line x1="10" y1="100" x2="190" y2="100" stroke="#555" stroke-width="2"/>
+                    <circle cx="90" cy="55" r="35" fill="none" stroke="#e91e63" stroke-width="4" stroke-dasharray="8,8"/>
+                    <g transform="translate(90, 45)">
+                        <rect x="-30" y="20" width="60" height="8" transform="rotate(160)" fill="#e91e63" rx="4"/> 
+                        <circle cx="0" cy="-20" r="10" fill="none" stroke="#fff" stroke-width="4"/>
+                        <line x1="0" y1="-10" x2="0" y2="10" stroke="#fff" stroke-width="4"/>
+                        <path d="M 0 10 L -25 5 M 0 10 L 15 20" stroke="#fff" stroke-width="4" fill="none"/>
+                        <path d="M 0 0 L -15 10 M 0 0 L 15 10" stroke="#fff" stroke-width="4" fill="none"/>
+                    </g>
+                    <text x="210" y="60" fill="#e91e63" font-family="DotGothic16" font-size="18">板が【縦】に回る！</text>
+                `;
+            } else if (manuals.includes(id)) {
+                let angle = (id === 3 || id === 46) ? -20 : 20;
+                svg += `
+                    <line x1="10" y1="100" x2="190" y2="100" stroke="#555" stroke-width="2"/>
+                    <path d="M 50 90 L 10 90 M 40 80 L 0 80" stroke="#fff" stroke-width="2"/> 
+                    <g transform="translate(100, 75) rotate(${angle})">
+                        <rect x="-30" y="20" width="60" height="8" fill="#4caf50" rx="4"/>
+                        <circle cx="0" cy="-20" r="10" fill="none" stroke="#fff" stroke-width="4"/>
+                        <path d="M 15 -25 Q 20 -15 15 -10 Q 10 -15 15 -25" fill="#03a9f4"/>
+                        <line x1="0" y1="-10" x2="0" y2="10" stroke="#fff" stroke-width="4"/>
+                        <path d="M 0 0 L -20 5 M 0 0 L 20 5" stroke="#fff" stroke-width="4" fill="none"/>
+                        <path d="M 0 10 L -15 20 M 0 10 L 15 20" stroke="#fff" stroke-width="4" fill="none"/>
+                    </g>
+                    <text x="210" y="60" fill="#4caf50" font-family="DotGothic16" font-size="18">片輪でバランス！</text>
+                `;
+            } else if (turns.includes(id)) {
+                svg += `
+                    <path d="M 20 90 Q 70 50 120 90" fill="none" stroke="#ff9800" stroke-width="5" stroke-dasharray="8,8"/>
+                    <g transform="translate(100, 65) rotate(15)">
+                        <rect x="-30" y="20" width="60" height="8" fill="#ff9800" rx="4"/>
+                        <circle cx="0" cy="-20" r="10" fill="none" stroke="#fff" stroke-width="4"/>
+                        <line x1="0" y1="-10" x2="0" y2="10" stroke="#fff" stroke-width="4"/>
+                        <path d="M 0 0 L -15 10 M 0 0 L 15 10" stroke="#fff" stroke-width="4" fill="none"/>
+                        <path d="M 0 10 L -15 20 M 0 10 L 15 20" stroke="#fff" stroke-width="4" fill="none"/>
+                    </g>
+                    <text x="210" y="60" fill="#ff9800" font-family="DotGothic16" font-size="18">カーブする！</text>
+                `;
+            } else if (grinds.includes(id)) {
+                svg += `
+                    <line x1="10" y1="110" x2="190" y2="110" stroke="#555" stroke-width="2"/>
+                    <rect x="30" y="75" width="120" height="35" fill="#333" stroke="#888" stroke-width="3"/>
+                    <path d="M 90 75 L 80 60 M 100 80 L 90 95 M 110 75 L 120 60" stroke="#ffeb3b" stroke-width="3"/>
+                    <g transform="translate(90, 45)">
+                        <rect x="-30" y="20" width="60" height="8" fill="#ff5722" rx="4"/>
+                        <circle cx="0" cy="-20" r="10" fill="none" stroke="#fff" stroke-width="4"/>
+                        <line x1="0" y1="-10" x2="0" y2="10" stroke="#fff" stroke-width="4"/>
+                        <path d="M 0 0 L -15 10 M 0 0 L 15 10" stroke="#fff" stroke-width="4" fill="none"/>
+                        <path d="M 0 10 L -15 20 M 0 10 L 15 20" stroke="#fff" stroke-width="4" fill="none"/>
+                    </g>
+                    <text x="210" y="55" fill="#ff5722" font-family="DotGothic16" font-size="18">ギャリギャリ！</text>
+                    <text x="210" y="75" fill="#aaa" font-family="DotGothic16" font-size="12">（箱の上を滑る）</text>
+                `;
+            } else if (oldSchool.includes(id)) {
+                svg += `
+                    <line x1="10" y1="100" x2="190" y2="100" stroke="#555" stroke-width="2"/>
+                    <g transform="translate(90, 50)">
+                        <rect x="-10" y="10" width="60" height="8" transform="rotate(-30)" fill="#8bc34a" rx="4"/>
+                        <circle cx="0" cy="-20" r="10" fill="none" stroke="#fff" stroke-width="4"/>
+                        <line x1="0" y1="-10" x2="0" y2="10" stroke="#fff" stroke-width="4"/>
+                        <path d="M 0 10 L -20 50" stroke="#fff" stroke-width="4"/>
+                        <ellipse cx="-20" cy="50" rx="6" ry="3" fill="#fff"/>
+                        <path d="M 0 10 L 20 5" stroke="#fff" stroke-width="4"/> 
+                        <path d="M 0 0 L 10 15" stroke="#fff" stroke-width="4"/> 
+                    </g>
+                    <text x="210" y="60" fill="#8bc34a" font-family="DotGothic16" font-size="18">地面に足をつく！</text>
+                `;
+            } else if (grabs.includes(id)) {
+                let angle = (id === 37 || id === 51) ? -50 : -10; 
+                svg += `
+                    <path d="M 10 20 Q 10 110 150 110" fill="none" stroke="#555" stroke-width="4"/> 
+                    <g transform="translate(90, 30) rotate(${angle})">
+                        <rect x="-30" y="15" width="60" height="8" fill="#9c27b0" rx="4"/>
+                        <circle cx="0" cy="-20" r="10" fill="none" stroke="#fff" stroke-width="4"/>
+                        <line x1="0" y1="-10" x2="0" y2="10" stroke="#fff" stroke-width="4"/>
+                        <path d="M 0 10 L -15 10 L -15 15 M 0 10 L 15 10 L 15 15" stroke="#fff" stroke-width="4" fill="none"/>
+                        <path d="M 0 0 L 0 15" stroke="#fff" stroke-width="4"/>
+                        <circle cx="0" cy="15" r="4" fill="#fff"/>
+                    </g>
+                    <text x="210" y="60" fill="#9c27b0" font-family="DotGothic16" font-size="18">手でつかむ！</text>
+                `;
+            } else if (rampAir.includes(id)) {
+                svg += `
+                    <path d="M 10 20 Q 10 110 150 110" fill="none" stroke="#888" stroke-width="6"/> 
+                    <rect x="0" y="20" width="20" height="10" fill="#888"/>
+                    <path d="M 50 70 Q 20 40 30 10" fill="none" stroke="#fff" stroke-width="3" stroke-dasharray="4,4"/>
+                    <g transform="translate(30, 0) rotate(-15)">
+                        <rect x="-30" y="20" width="60" height="8" fill="#00bcd4" rx="4"/>
+                        <circle cx="0" cy="-20" r="10" fill="none" stroke="#fff" stroke-width="4"/>
+                        <line x1="0" y1="-10" x2="0" y2="10" stroke="#fff" stroke-width="4"/>
+                        <path d="M 0 0 L -15 -10 M 0 0 L 15 -10" stroke="#fff" stroke-width="4" fill="none"/>
+                        <path d="M 0 10 L -15 20 M 0 10 L 15 20" stroke="#fff" stroke-width="4" fill="none"/>
+                    </g>
+                    <text x="210" y="60" fill="#00bcd4" font-family="DotGothic16" font-size="18">空中へ飛び出す！</text>
+                `;
+            } else if (rampLip.includes(id)) {
+                svg += `
+                    <path d="M 80 20 Q 80 110 190 110" fill="none" stroke="#888" stroke-width="6"/>
+                    <rect x="60" y="20" width="20" height="10" fill="#ffc107"/>
+                    <g transform="translate(70, 0) rotate(10)">
+                        <rect x="-30" y="20" width="60" height="8" fill="#ffc107" rx="4"/>
+                        <circle cx="0" cy="-20" r="10" fill="none" stroke="#fff" stroke-width="4"/>
+                        <line x1="0" y1="-10" x2="0" y2="10" stroke="#fff" stroke-width="4"/>
+                        <path d="M 0 0 L -15 10 M 0 0 L 15 10" stroke="#fff" stroke-width="4" fill="none"/>
+                        <path d="M 0 10 L -15 20 M 0 10 L 15 20" stroke="#fff" stroke-width="4" fill="none"/>
+                    </g>
+                    <text x="210" y="60" fill="#ffc107" font-family="DotGothic16" font-size="16">フチで技をかける！</text>
+                `;
+            }
+
+            svg += `</svg>`;
+            return svg;
+        }
+
+        function showDetail(id) {
+            const trick = appData.tricks.find(t => t.id === id);
+            const detailDiv = document.getElementById("trick-detail");
+            const stars = "★".repeat(trick.difficulty);
+            const illustration = getIllustration(trick.id);
+
+            detailDiv.innerHTML = `
+                <h2>▶ ${trick.name}</h2>
+                <p>ジャンル: ${trick.category} / なんいど: <span style="color:#ffeb3b;">${stars}</span></p>
+                <div class="illustration-box">${illustration}</div>
+                <p>【ヒント】<br>${trick.desc}</p>
+                <div style="margin-top: 20px;">
+                    <button class="btn btn-try" onclick="updateStatus(${trick.id}, 1)">🔥 ちょうせんする！</button>
+                    <button class="btn btn-make" onclick="updateStatus(${trick.id}, 2)">✨ メイクした！！</button>
+                    <button class="btn btn-undo" onclick="updateStatus(${trick.id}, 0)">× キャンセル</button>
+                </div>
+            `;
+        }
+
+        function updateStatus(id, newStatus) {
+            const trick = appData.tricks.find(t => t.id === id);
+            trick.status = newStatus;
+            if (newStatus === 0 || newStatus === 1) {
+                let currentTotal = appData.tricks.filter(t => t.status === 2).reduce((sum, t) => sum + t.difficulty, 0);
+                appData.openedLevel = Math.floor(currentTotal / 5);
+            }
+            autoSave(); renderList(); showDetail(id);
+        }
+
+        function showTreasureBox(level) {
+            document.getElementById("reward-level-num").innerText = level;
+            let rewardMsg = appData.rewards[level - 1];
+            if (!rewardMsg || rewardMsg.trim() === "") rewardMsg = "シークレット！(ほごしゃに きいてみてね)";
+            document.getElementById("reward-result").innerText = rewardMsg;
+            document.getElementById("reward-screen").style.display = "flex";
+        }
+        function closeTreasureBox() { document.getElementById("reward-screen").style.display = "none"; renderList(); }
+        function openModal(id) { closeModals(); document.getElementById("overlay").style.display = "block"; document.getElementById(id).style.display = "block"; }
+        function closeModals() { document.getElementById("overlay").style.display = "none"; document.querySelectorAll(".modal").forEach(m => m.style.display = "none"); }
+        function saveProfile() {
+            appData.player.icon = document.getElementById("input-icon").value || "🛹";
+            appData.player.name = document.getElementById("input-name").value || "名無し";
+            appData.player.bio = document.getElementById("input-bio").value || "";
+            updateProfileUI(); closeModals(); autoSave();
+        }
+        function checkParentAccess() {
+            if (!appData.parent.pin) openModal("modal-pin-setup");
+            else { document.getElementById("input-pin-login").value = ""; openModal("modal-pin"); }
+        }
+        function saveParentSetup() {
+            const pin = document.getElementById("input-new-pin").value;
+            const sq = document.getElementById("input-secret-q").value;
+            const sa = document.getElementById("input-secret-a").value;
+            if (pin.length !== 4) { alert("パスワードは 数字4ケタで 入力してください！"); return; }
+            if (!sq || !sa) { alert("あいことばの 質問と答えも 入力してください！"); return; }
+            appData.parent = { pin: pin, secretQ: sq, secretA: sa };
+            autoSave(); alert("パスワードを 設定しました！"); openRewardSettingsModal();
+        }
+        function loginParent() {
+            const input = document.getElementById("input-pin-login").value;
+            if (input === appData.parent.pin) openRewardSettingsModal();
+            else alert("パスワードが ちがいます！");
+        }
+        function checkSecret() {
+            const input = document.getElementById("input-secret-check").value;
+            if (input === appData.parent.secretA) {
+                alert("あいことばが 一致しました！ パスワードを 再設定してください。"); openModal("modal-pin-setup");
+            } else alert("こたえが ちがいます！");
+        }
+        function openRewardSettingsModal() {
+            const container = document.getElementById("reward-inputs-container");
+            container.innerHTML = "";
+            for (let i = 0; i < 10; i++) {
+                container.innerHTML += `<label>レベル ${i + 1} の ごほうび</label><textarea id="reward-input-${i}" rows="2">${appData.rewards[i]}</textarea>`;
+            }
+            openModal("modal-reward-settings");
+        }
+        function saveRewards() {
+            for (let i = 0; i < 10; i++) appData.rewards[i] = document.getElementById(`reward-input-${i}`).value;
+            autoSave(); alert("すべてのごほうびを 保存しました！"); closeModals();
+        }
+
+        document.getElementById("overlay").addEventListener("click", () => {
+            document.getElementById("display-secret-q").innerText = "しつもん：" + appData.parent.secretQ;
+        });
+
+        loadData();
+    </script>
+</body>
+</html>
