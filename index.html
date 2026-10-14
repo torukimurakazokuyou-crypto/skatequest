@@ -3,14 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>スケクエ ぼうけんのしょ（スプレッドシート完全連動版）</title>
+    <title>スケクエ ぼうけんのしょ（スマホ最適化版）</title>
     <link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
     <style>
         body { background-color: #000; color: #fff; font-family: 'DotGothic16', monospace; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        h1 { border-bottom: 2px solid #fff; padding-bottom: 10px; width: 100%; max-width: 900px; }
+        h1 { border-bottom: 2px solid #fff; padding-bottom: 10px; width: 100%; max-width: 900px; font-size: 24px; }
         .rpg-box { border: 4px solid #fff; border-radius: 8px; padding: 20px; background-color: #000; box-sizing: border-box; margin-bottom: 15px; }
+        
+        /* 全体レイアウト */
+        .header-area { width: 100%; max-width: 900px; display: flex; justify-content: space-between; align-items: flex-start; gap: 15px; }
+        .header-left { flex: 2; }
+        .header-right { flex: 1; text-align: center; }
         .container { display: flex; gap: 20px; width: 100%; max-width: 900px; }
-        .list-section, .detail-section { flex: 1; height: 500px; overflow-y: auto; }
+        .list-section { flex: 1; height: 600px; overflow-y: auto; }
+        .detail-section { flex: 1; height: 600px; overflow-y: auto; position: relative; }
         
         details { margin-bottom: 15px; }
         summary { cursor: pointer; outline: none; list-style: none; user-select: none; }
@@ -20,10 +26,10 @@
         .category-header::before { content: "▶ "; color: #fff; display: inline-block; width: 20px; }
         details[open] .category-header::before { content: "▼ "; color: #fff; }
         
-        .trick-item { cursor: pointer; padding: 10px 10px 10px 30px; border-bottom: 1px dashed #333; display: flex; justify-content: space-between; }
+        .trick-item { cursor: pointer; padding: 12px 10px 12px 30px; border-bottom: 1px dashed #333; display: flex; justify-content: space-between; align-items: center; }
         .trick-item:hover { background-color: #333; }
         .status-0 { color: #888; } .status-1 { color: #ff9800; font-weight: bold; } .status-2 { color: #ffeb3b; font-weight: bold; }
-        .btn { font-family: 'DotGothic16', monospace; background-color: #000; color: #fff; border: 2px solid #fff; padding: 10px; font-size: 16px; cursor: pointer; margin-top: 10px; width: 100%; }
+        .btn { font-family: 'DotGothic16', monospace; background-color: #000; color: #fff; border: 2px solid #fff; padding: 12px; font-size: 16px; cursor: pointer; margin-top: 10px; width: 100%; border-radius: 4px; }
         .btn:hover { background-color: #333; }
         .btn-try { border-color: #ff9800; color: #ff9800; }
         .btn-make { border-color: #ffeb3b; color: #ffeb3b; }
@@ -31,15 +37,47 @@
         .btn-parent { border-color: #e91e63; color: #e91e63; width: auto; font-size: 14px; }
         .profile-container { display: flex; align-items: center; gap: 15px; cursor: pointer; }
         .profile-icon { font-size: 40px; border: 2px solid #fff; padding: 5px; border-radius: 8px; }
-        #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; z-index: 100; }
-        .modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #000; border: 4px solid #fff; padding: 20px; z-index: 101; display: none; width: 320px; max-height: 80vh; overflow-y: auto; }
-        .modal input, .modal textarea { width: 100%; background: #222; color: #fff; border: 1px solid #fff; font-family: 'DotGothic16'; padding: 5px; margin-top: 10px; margin-bottom: 15px; box-sizing: border-box; }
-        .modal label { font-size: 14px; color: #aaa; }
-        #reward-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 235, 59, 0.95); color: #000; z-index: 200; display: none; flex-direction: column; align-items: center; justify-content: center; font-size: 24px; text-align: center; }
-        .illustration-box { border: 2px dashed #555; height: 160px; display: flex; align-items: center; justify-content: center; margin: 10px 0; background-color: #111; border-radius: 8px; overflow: hidden; }
         
-        /* クラウド同期状況を表示するインジケータ */
-        #sync-status { position: fixed; bottom: 10px; right: 10px; font-size: 12px; color: #888; background: #111; padding: 6px 12px; border: 1px solid #444; border-radius: 4px; z-index: 99; }
+        #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; z-index: 100; }
+        .modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #000; border: 4px solid #fff; padding: 20px; z-index: 101; display: none; width: 90%; max-width: 320px; max-height: 80vh; overflow-y: auto; border-radius: 8px; }
+        .modal input, .modal textarea { width: 100%; background: #222; color: #fff; border: 1px solid #fff; font-family: 'DotGothic16'; padding: 10px; margin-top: 10px; margin-bottom: 15px; box-sizing: border-box; font-size: 16px; }
+        .modal label { font-size: 14px; color: #aaa; }
+        #reward-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 235, 59, 0.95); color: #000; z-index: 300; display: none; flex-direction: column; align-items: center; justify-content: center; font-size: 24px; text-align: center; }
+        .illustration-box { border: 2px dashed #555; height: 160px; display: flex; align-items: center; justify-content: center; margin: 10px 0; background-color: #111; border-radius: 8px; overflow: hidden; width: 100%; }
+        #sync-status { position: fixed; bottom: 10px; right: 10px; font-size: 12px; color: #888; background: rgba(17,17,17,0.9); padding: 6px 12px; border: 1px solid #444; border-radius: 4px; z-index: 99; }
+        
+        #btn-close-detail { display: none; margin-bottom: 15px; border-color: #aaa; color: #aaa; }
+
+        /* ▼▼▼ スマホ用（画面幅が768px以下の場合）のレイアウト変更 ▼▼▼ */
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+            h1 { font-size: 20px; }
+            /* 上部のプロフィールとレベルを縦並びに */
+            .header-area { flex-direction: column; gap: 10px; }
+            .header-left, .header-right { width: 100%; margin: 0; }
+            
+            /* リストと詳細を縦並びに。普段はリストだけ表示 */
+            .container { flex-direction: column; }
+            .list-section { height: auto; min-height: 50vh; overflow-y: visible; }
+            
+            /* 詳細画面は「全画面のポップアップ」に変身！ */
+            .detail-section {
+                display: none; /* 普段は隠す */
+                position: fixed;
+                top: 0; left: 0; width: 100%; height: 100%;
+                z-index: 200;
+                background-color: #000;
+                border-radius: 0;
+                border: none;
+                margin: 0; padding: 20px;
+                box-sizing: border-box;
+                overflow-y: auto;
+            }
+            .detail-section.active {
+                display: block; /* 選択されたら表示 */
+            }
+            #btn-close-detail { display: block; } /* スマホの時だけ「もどるボタン」表示 */
+        }
     </style>
 </head>
 <body>
@@ -52,35 +90,44 @@
     </div>
 
     <h1>▼ スケクエ ぼうけんのしょ</h1>
-    <div style="width: 100%; max-width: 900px; display: flex; justify-content: space-between; align-items: flex-start;">
-        <div class="rpg-box" style="flex: 2; margin-right: 15px;">
+    
+    <!-- スマホ版で縦並びになるエリア -->
+    <div class="header-area">
+        <div class="rpg-box header-left">
             <div class="profile-container" onclick="openModal('modal-profile')">
                 <div class="profile-icon" id="display-icon">🛹</div>
                 <div>
                     <div id="display-name" style="font-size: 20px; font-weight: bold;">なまえ：スケーター</div>
-                    <div id="display-bio" style="color: #ccc;">プロフィール：これからがんばる！</div>
+                    <div id="display-bio" style="color: #ccc; font-size: 14px;">プロフィール：これからがんばる！</div>
                 </div>
             </div>
         </div>
-        <div class="rpg-box" style="flex: 1; text-align: center;">
-            <div style="font-size: 16px;">げんざいの レベル： <span id="current-level-display" style="color:#ffeb3b; font-size: 20px;">0</span></div>
-            <div style="font-size: 14px; margin-top: 5px;">次のごほうびまで： <span id="star-count" style="color: #ffeb3b; font-size: 24px;">0</span> / 5</div>
+        <div class="rpg-box header-right">
+            <div style="font-size: 16px;">げんざいの レベル： <span id="current-level-display" style="color:#ffeb3b; font-size: 24px;">0</span></div>
+            <div style="font-size: 14px; margin-top: 5px;">次のごほうびまで： <span id="star-count" style="color: #ffeb3b; font-size: 20px;">0</span> / 5</div>
             <button class="btn btn-parent" style="margin-top: 15px;" onclick="checkParentAccess()">【ほごしゃの ページ】</button>
         </div>
     </div>
 
+    <!-- リストと詳細 -->
     <div class="container">
         <div class="rpg-box list-section">
             <h3 style="margin-top: 0; color: #aaa;">▼ トリック いちらん</h3>
             <div id="trick-list"></div>
         </div>
-        <div class="rpg-box detail-section" id="trick-detail">
-            <h3 style="color: #aaa;">ひだりの リストから トリックを えらんでね</h3>
+        
+        <!-- スマホではポップアップになる詳細エリア -->
+        <div class="rpg-box detail-section" id="trick-detail-container">
+            <button id="btn-close-detail" class="btn" onclick="closeDetail()">◀ リストにもどる</button>
+            <div id="trick-detail">
+                <h3 style="color: #aaa; text-align:center; margin-top:40px;">ひだりの リストから<br>トリックを えらんでね</h3>
+            </div>
         </div>
     </div>
 
     <div id="overlay" onclick="closeModals()"></div>
 
+    <!-- モーダル群 -->
     <div id="modal-profile" class="modal">
         <h3>▼ プロフィール へんこう</h3>
         <label>アイコン</label><input type="text" id="input-icon" maxlength="2">
@@ -95,9 +142,9 @@
         <div style="text-align: right; margin-top: 15px;"><a href="#" style="color: #aaa; font-size: 12px;" onclick="openModal('modal-secret')">パスワードを わすれたら</a></div>
     </div>
     <div id="modal-pin-setup" class="modal">
-        <h3 style="color: #e91e63;">▼ パスワード＆あいことば設定</h3>
+        <h3 style="color: #e91e63;">▼ パスワード設定</h3>
         <label>新しい 4ケタのパスワード</label><input type="password" id="input-new-pin" maxlength="4">
-        <label>パスワードを忘れたときの 質問</label><input type="text" id="input-secret-q">
+        <label>パスワードを忘れたときの 質問</label><input type="text" id="input-secret-q" placeholder="例: お母さんの旧姓は？">
         <label>質問の 答え</label><input type="text" id="input-secret-a">
         <button class="btn btn-parent" onclick="saveParentSetup()">せっていする</button>
     </div>
@@ -114,9 +161,8 @@
     </div>
 
     <script>
-        // ▼▼▼ 指定いただいた新しいURLに変更しました ▼▼▼
+        // 設定済みのGAS_URL
         const GAS_URL = "https://script.google.com/macros/s/AKfycbxbes8O9NXnqAJUVx0YiPmfEDTyw2BzIXHalaoCI5uLs-czU-GsAauiCtLGxkmfmON7Ew/exec";
-        // ▲▲▲====================================▲▲▲
 
         let appData = {
             player: { name: "スケーター", bio: "これからがんばる！", icon: "🛹" },
@@ -182,14 +228,8 @@
         };
 
         async function autoSave() {
-            updateSyncStatus("⚡ スプレッドシートへ送信中...");
+            updateSyncStatus("⚡ 送信中...");
             localStorage.setItem("skateQuestDataV8", JSON.stringify(appData));
-            
-            if (!GAS_URL || GAS_URL.includes("ここにコピーしたGAS")) {
-                updateSyncStatus("📱 ローカル保存完了 (GAS URL未設定)");
-                return;
-            }
-
             try {
                 await fetch(GAS_URL, {
                     method: "POST",
@@ -197,17 +237,16 @@
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(appData)
                 });
-                updateSyncStatus("✅ スプレッドシート同期完了");
+                updateSyncStatus("✅ 同期完了");
             } catch (e) {
                 console.error("送信エラー:", e);
-                updateSyncStatus("❌ 同期失敗（ローカルのみ保存）");
+                updateSyncStatus("❌ 失敗");
             }
         }
 
         async function loadData() {
-            updateSyncStatus("⚡ スプレッドシートから読み込み中...");
-            
-            if (GAS_URL && !GAS_URL.includes("ここにコピーしたGAS")) {
+            updateSyncStatus("⚡ 読込中...");
+            if (GAS_URL) {
                 try {
                     const res = await fetch(GAS_URL);
                     const cloudData = await res.json();
@@ -223,16 +262,12 @@
                                 if (target) target.status = savedTrick.status;
                             });
                         }
-                        updateSyncStatus("✅ クラウドデータ読込完了");
-                        updateProfileUI(); 
-                        renderList();
-                        return;
+                        updateSyncStatus("✅ 読込完了");
+                        updateProfileUI(); renderList(); return;
                     }
-                } catch (e) {
-                    console.error("クラウド読込失敗のためローカル読込に切り替えます", e);
-                }
+                } catch (e) { console.error("クラウド読込失敗", e); }
             }
-
+            // ローカルフォールバック
             const saved = localStorage.getItem("skateQuestDataV8");
             if (saved) {
                 const parsed = JSON.parse(saved);
@@ -247,14 +282,11 @@
                     });
                 }
             }
-            updateSyncStatus("📱 ローカルデータ読込完了");
-            updateProfileUI(); 
-            renderList();
+            updateSyncStatus("📱 ローカル完了");
+            updateProfileUI(); renderList();
         }
 
-        function updateSyncStatus(msg) {
-            document.getElementById("sync-status").innerText = msg;
-        }
+        function updateSyncStatus(msg) { document.getElementById("sync-status").innerText = msg; }
 
         function updateProfileUI() {
             document.getElementById("display-icon").innerText = appData.player.icon;
@@ -293,7 +325,11 @@
                         if (trick.status === 1) { statusText = "🔥 挑戦中"; statusClass = "status-1"; }
                         if (trick.status === 2) { statusText = "✨ メイク！"; statusClass = "status-2"; totalStars += trick.difficulty; }
                         const stars = "★".repeat(trick.difficulty);
-                        item.innerHTML = `<span class="${statusClass}">${trick.name} (${stars})</span><span class="${statusClass}">${statusText}</span>`;
+                        // リスト内の表示を微調整
+                        item.innerHTML = `
+                            <span class="${statusClass}" style="flex:1;">${trick.name}<br><span style="font-size:12px;">(${stars})</span></span>
+                            <span class="${statusClass}" style="font-size:14px;">${statusText}</span>
+                        `;
                         listContainer.appendChild(item);
                     });
                     
@@ -309,10 +345,14 @@
             document.getElementById("star-count").innerText = currentStars;
 
             if (reachedLevel > appData.openedLevel && appData.openedLevel < 10) {
-                appData.openedLevel++; 
-                autoSave(); 
-                showTreasureBox(appData.openedLevel);
+                appData.openedLevel++; autoSave(); showTreasureBox(appData.openedLevel);
             }
+        }
+
+        // ▼ スマホ用の詳細画面（オーバーレイ）を閉じる処理
+        function closeDetail() {
+            document.getElementById("trick-detail-container").classList.remove("active");
+            document.body.style.overflow = "auto"; // スクロール復元
         }
 
         function getIllustration(id) {
@@ -478,7 +518,7 @@
 
             detailDiv.innerHTML = `
                 <h2>▶ ${trick.name}</h2>
-                <p>ジャンル: ${trick.category} / なんいど: <span style="color:#ffeb3b;">${stars}</span></p>
+                <p style="font-size:14px; color:#ccc;">${trick.category} / <span style="color:#ffeb3b;">${stars}</span></p>
                 <div class="illustration-box">${illustration}</div>
                 <p>【ヒント】<br>${trick.desc}</p>
                 <div style="margin-top: 20px;">
@@ -487,6 +527,12 @@
                     <button class="btn btn-undo" onclick="updateStatus(${trick.id}, 0)">× キャンセル</button>
                 </div>
             `;
+            
+            // ▼ スマホ用の画面制御 ▼
+            if (window.innerWidth <= 768) {
+                document.getElementById("trick-detail-container").classList.add("active");
+                document.body.style.overflow = "hidden"; // 後ろのリストのスクロールを止める
+            }
         }
 
         function updateStatus(id, newStatus) {
